@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-FTP_HOST = os.getenv("FTP_HOST")
-FTP_USER = os.getenv("FTP_USER")
-FTP_PASS = os.getenv("FTP_PASS")
+FTP_HOST = os.getenv("38.58.177.88")
+FTP_USER = os.getenv("zoUjiYlb0cQy")
+FTP_PASS = os.getenv("RyoHyXlrCjtj")
 FTP_PATH = "/server-data/Logs/"
 SCAN_INTERVAL = 180  # seconds between scans
 
