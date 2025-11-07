@@ -7,6 +7,9 @@ from datetime import datetime
 from aioftp import Client
 from discord import app_commands
 
+print(f"🔧 FTP_HOST={FTP_HOST}, FTP_USER={FTP_USER}, FTP_PASS={FTP_PASS}")
+
+
 # Use Railway-injected environment variables
 TOKEN = os.environ.get("DISCORD_TOKEN")
 FTP_HOST = os.environ.get("FTP_HOST")
