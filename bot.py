@@ -4,7 +4,19 @@ import aioftp
 import asyncio
 import os
 import re
+import logging
 from datetime import datetime
+
+# Configure logging to use stdout instead of stderr
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[logging.StreamHandler()]  # This forces stdout
+)
+
+# Set discord.py to use our configured logger
+discord.utils.setup_logging(level=logging.INFO)
 
 # Load environment variables from Railway
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -21,6 +33,7 @@ CHANNEL_ID = 1236179374579912724
 
 # Discord client setup
 intents = discord.Intents.default()
+intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -31,7 +44,6 @@ async def find_chat_log_file():
     """Find the chat log file on the FTP server."""
     print("🔍 Scanning FTP directory for chat log files...")
     try:
-        # Connect directly with IP address - no resolution needed
         ftp_client = aioftp.Client()
         await ftp_client.connect(FTP_HOST)
         await ftp_client.login(FTP_USER, FTP_PASS)
@@ -61,7 +73,8 @@ async def find_chat_log_file():
 def extract_new_messages(text):
     """Extract new chat messages from log text."""
     global last_timestamp
-    pattern = r"\[(\d{2}-\d{2}-\d{2} (\d{2}:\d{2}))\]\n\[info\]\n Got message:ChatMessage\{chat=General, author='([^']+)', text='([^']+)'\}"
+    # Fixed pattern for actual log format: [07-11-25 23:30:43.953][info] Got message:...
+    pattern = r"\[(\d{2}-\d{2}-\d{2}) (\d{2}:\d{2}):\d{2}\.\d{3}\]\[info\] Got message:ChatMessage\{chat=General, author='([^']+)', text='([^']+)'\}\."
     matches = re.findall(pattern, text)
     new_messages = []
     
@@ -95,7 +108,6 @@ async def scan_and_post():
             print("🚫 No chat log file to scan.")
             return
         
-        # Download the file
         ftp_client = aioftp.Client()
         await ftp_client.connect(FTP_HOST)
         await ftp_client.login(FTP_USER, FTP_PASS)
@@ -132,7 +144,8 @@ async def auto_scan():
 @tree.command(name="scan", description="Manually trigger a chat log scan")
 async def manual_scan(interaction: discord.Interaction):
     """Slash command to manually trigger a scan."""
-    await interaction.response.defer()
+    print(f"📣 /scan command triggered by {interaction.user}")
+    await interaction.response.defer(ephemeral=False)
     await scan_and_post()
     await interaction.followup.send("✅ Manual scan completed!")
 
@@ -145,8 +158,11 @@ async def on_ready():
     try:
         synced = await tree.sync()
         print(f"✅ Synced {len(synced)} command(s)")
+        print(f"Commands available: {[cmd.name for cmd in synced]}")
     except Exception as e:
         print(f"⚠️ Failed to sync commands: {e}")
+        import traceback
+        traceback.print_exc()
     
     client.loop.create_task(auto_scan())
 
