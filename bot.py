@@ -7,14 +7,15 @@ from datetime import datetime
 from aioftp import Client
 from discord import app_commands
 
-print(f"🔧 FTP_HOST={FTP_HOST}, FTP_USER={FTP_USER}, FTP_PASS={FTP_PASS}")
-
 
 # Use Railway-injected environment variables
 TOKEN = os.environ.get("DISCORD_TOKEN")
 FTP_HOST = os.environ.get("FTP_HOST")
 FTP_USER = os.environ.get("FTP_USER")
 FTP_PASS = os.environ.get("FTP_PASS")
+
+print(f"🔧 FTP_HOST={FTP_HOST}, FTP_USER={FTP_USER}, FTP_PASS={FTP_PASS}")
+
 
 # Static config
 FTP_PATH = "/server-data/Logs/"
