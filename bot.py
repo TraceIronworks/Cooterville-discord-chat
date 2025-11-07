@@ -40,7 +40,7 @@ def extract_general_chat(text):
 
 async def scan_and_post():
     await client.wait_until_ready()
-    channel = discord.utils.get(client.get_all_channels(), name="general")  # Change to your channel name
+    channel = client.get_channel(1236179374579912724)  # Your channel ID
     if not channel:
         print("Channel not found.")
         return
