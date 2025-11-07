@@ -3,18 +3,19 @@ import aioftp
 import re
 import os
 import asyncio
-from dotenv import load_dotenv
 from datetime import datetime
 
-# Load environment variables
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-FTP_HOST = os.getenv("FTP_HOST")
-FTP_USER = os.getenv("FTP_USER")
-FTP_PASS = os.getenv("FTP_PASS")
+# Use environment variables injected by Railway
+TOKEN = os.environ.get("DISCORD_TOKEN")
+FTP_HOST = os.environ.get("FTP_HOST")
+FTP_USER = os.environ.get("FTP_USER")
+FTP_PASS = os.environ.get("FTP_PASS")
+
+# Static config
 FTP_PATH = "/server-data/Logs/"
 SCAN_INTERVAL = 180
 CHANNEL_ID = 1236179374579912724
+
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
