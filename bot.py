@@ -126,9 +126,18 @@ async def scan_and_post():
         messages = extract_new_messages(text)
         if messages:
             print(f"📤 Posting {len(messages)} messages to Discord...")
-            for msg in messages:
-                await channel.send(msg)
-                await asyncio.sleep(0.5)
+            # Combine all messages into one with newlines
+            combined_message = "\n".join(messages)
+            
+            # Discord has a 2000 character limit, so split if needed
+            if len(combined_message) <= 2000:
+                await channel.send(combined_message)
+            else:
+                # Split into chunks if too long
+                chunks = [combined_message[i:i+1900] for i in range(0, len(combined_message), 1900)]
+                for chunk in chunks:
+                    await channel.send(chunk)
+                    await asyncio.sleep(0.5)
         else:
             print("📭 No new messages to post.")
                 
