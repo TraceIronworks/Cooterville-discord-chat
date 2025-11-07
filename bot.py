@@ -2,11 +2,11 @@ import discord
 import re
 import os
 import asyncio
-import socket
 from datetime import datetime
-from aioftplib import Client
+from aioftplib import FTPClient
 from discord import app_commands
 
+print("✅ Imports loaded successfully.")
 
 # Use Railway-injected environment variables
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -14,8 +14,7 @@ FTP_HOST = os.environ.get("FTP_HOST")
 FTP_USER = os.environ.get("FTP_USER")
 FTP_PASS = os.environ.get("FTP_PASS")
 
-print(f"🔧 FTP_HOST={FTP_HOST}, FTP_USER={FTP_USER}, FTP_PASS={FTP_PASS}")
-
+print(f"🔧 FTP_HOST={FTP_HOST}, FTP_USER={FTP_USER}, FTP_PASS={'***' if FTP_PASS else None}")
 
 # Static config
 FTP_PATH = "/server-data/Logs/"
@@ -27,24 +26,16 @@ client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 last_timestamp = None
 
-async def resolve_ipv4_address(host):
-    infos = await asyncio.get_event_loop().getaddrinfo(
-        host, 21, family=socket.AF_INET, type=socket.SOCK_STREAM
-    )
-    return infos[0][4][0]  # Return the IPv4 address
-
-async def find_chat_log_file():
+async def find_chat_log_file(ftp):
     print("🔍 Scanning FTP directory for chat log files...")
-    ip = await resolve_ipv4_address(FTP_HOST)
-    async with Client.context(ip, FTP_USER, FTP_PASS) as ftp:
-        await ftp.change_directory(FTP_PATH)
-        files = await ftp.list()
-        for file in files:
-            if "chat" in file.name.lower() and file.name.endswith(".txt"):
-                print(f"📄 Found chat log file: {file.name}")
-                return file.name
-        print("⚠️ No matching chat log file found in FTP directory.")
-        return None
+    await ftp.change_directory(FTP_PATH)
+    files = await ftp.list()
+    for file in files:
+        if "chat" in file.name.lower() and file.name.endswith(".txt"):
+            print(f"📄 Found chat log file: {file.name}")
+            return file.name
+    print("⚠️ No matching chat log file found in FTP directory.")
+    return None
 
 def extract_new_messages(text):
     global last_timestamp
@@ -70,22 +61,27 @@ async def scan_and_post():
         return
 
     try:
-        ip = await resolve_ipv4_address(FTP_HOST)
-        filename = await find_chat_log_file()
+        ftp = FTPClient()
+        await ftp.connect(FTP_HOST, 21)
+        await ftp.login(FTP_USER, FTP_PASS)
+
+        filename = await find_chat_log_file(ftp)
         if filename:
-            async with Client.context(ip, FTP_USER, FTP_PASS) as ftp:
-                stream = await ftp.download_stream(f"{FTP_PATH}{filename}")
-                content = await stream.read()
-                text = content.decode("utf-8")
-                messages = extract_new_messages(text)
-                if messages:
-                    print(f"📤 Posting {len(messages)} new messages to Discord...")
-                    for msg in messages:
-                        await channel.send(msg)
-                else:
-                    print("📭 No messages to post.")
+            stream = await ftp.download_stream(f"{FTP_PATH}{filename}")
+            content = await stream.read()
+            text = content.decode("utf-8")
+            messages = extract_new_messages(text)
+            if messages:
+                print(f"📤 Posting {len(messages)} new messages to Discord...")
+                for msg in messages:
+                    await channel.send(msg)
+            else:
+                print("📭 No messages to post.")
         else:
             print("🚫 Skipping scan — no chat log file found.")
+
+        await ftp.quit()
+
     except Exception as e:
         print(f"🔥 Error during scan: {e}")
 
