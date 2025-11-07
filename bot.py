@@ -4,7 +4,23 @@ import aioftp
 import asyncio
 import os
 import re
+import logging
+import sys
 from datetime import datetime
+
+# Configure logging to use stdout and suppress discord.py's stderr output
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    stream=sys.stdout,
+    force=True
+)
+
+# Suppress discord.py logging or redirect it properly
+logging.getLogger('discord').setLevel(logging.WARNING)
+logging.getLogger('discord.gateway').setLevel(logging.WARNING)
+logging.getLogger('discord.client').setLevel(logging.WARNING)
 
 # Load environment variables from Railway
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -19,10 +35,9 @@ FTP_PATH = "/server-data/Logs/"
 SCAN_INTERVAL = 180  # seconds
 CHANNEL_ID = 1236179374579912724
 
-# Discord client setup with MESSAGE CONTENT INTENT
+# Discord client setup
 intents = discord.Intents.default()
-intents.message_content = True  # Add this line
-
+intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -77,7 +92,6 @@ def extract_new_messages(text):
                 last_timestamp = timestamp
         except ValueError as e:
             print(f"⚠️ Failed to parse timestamp '{timestamp_str}': {e}")
-   
     
     if not new_messages:
         print("🕵️ No new messages found since last scan.")
@@ -163,10 +177,3 @@ if __name__ == "__main__":
     else:
         print("🚀 Starting bot...")
         client.run(TOKEN)
-```
-
-**More importantly: You need to re-invite your bot with the correct permissions!**
-
-Use this invite link (replace `YOUR_CLIENT_ID` with your bot's client ID from Discord Developer Portal):
-```
-https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=2048&scope=bot%20applications.commands
