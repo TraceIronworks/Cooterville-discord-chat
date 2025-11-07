@@ -18,19 +18,21 @@ FTP_PATH = "/server-data/Logs/"
 SCAN_INTERVAL = 180
 CHANNEL_ID = 1236179374579912724
 
-# Force IPv4 for aioftp
-class IPv4Client(Client):
-    async def connect(self, host, port=21, ssl=False, family=socket.AF_INET):
-        return await super().connect(host, port=port, ssl=ssl, family=family)
-
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 last_timestamp = None
 
+async def resolve_ipv4_address(host):
+    infos = await asyncio.get_event_loop().getaddrinfo(
+        host, 21, family=socket.AF_INET, type=socket.SOCK_STREAM
+    )
+    return infos[0][4][0]  # Return the IPv4 address
+
 async def find_chat_log_file():
     print("🔍 Scanning FTP directory for chat log files...")
-    async with IPv4Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
+    ip = await resolve_ipv4_address(FTP_HOST)
+    async with Client.context(ip, FTP_USER, FTP_PASS) as ftp:
         await ftp.change_directory(FTP_PATH)
         files = await ftp.list()
         for file in files:
@@ -64,9 +66,10 @@ async def scan_and_post():
         return
 
     try:
+        ip = await resolve_ipv4_address(FTP_HOST)
         filename = await find_chat_log_file()
         if filename:
-            async with IPv4Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
+            async with Client.context(ip, FTP_USER, FTP_PASS) as ftp:
                 stream = await ftp.download_stream(f"{FTP_PATH}{filename}")
                 content = await stream.read()
                 text = content.decode("utf-8")
