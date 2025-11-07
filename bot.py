@@ -28,15 +28,7 @@ async def find_chat_log_file():
         return None
 
 def extract_general_chat(text):
-    pattern = r"
-
-\[(\d{2}-\d{2}-\d{2} (\d{2}:\d{2}))\]
-
-
-
-\[info\]
-
- Got message:ChatMessage\{chat=General, author='([^']+)', text='([^']+)'\}"
+    pattern = r"\[(\d{2}-\d{2}-\d{2} (\d{2}:\d{2}))\]\n\[info\] Got message:ChatMessage\{chat=General, author='([^']+)', text='([^']+)'\}"
     matches = re.findall(pattern, text)
     results = []
     for (_, time, author, message) in matches:
