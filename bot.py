@@ -1,11 +1,13 @@
 import discord
-import aioftp
 import re
 import os
 import asyncio
+import socket
 from datetime import datetime
+from aioftp import Client
+from discord import app_commands
 
-# Use environment variables injected by Railway
+# Use Railway-injected environment variables
 TOKEN = os.environ.get("DISCORD_TOKEN")
 FTP_HOST = os.environ.get("FTP_HOST")
 FTP_USER = os.environ.get("FTP_USER")
@@ -16,15 +18,19 @@ FTP_PATH = "/server-data/Logs/"
 SCAN_INTERVAL = 180
 CHANNEL_ID = 1236179374579912724
 
+# Force IPv4 for aioftp
+class IPv4Client(Client):
+    async def connect(self, host, port=21, ssl=False, family=socket.AF_INET):
+        return await super().connect(host, port=port, ssl=ssl, family=family)
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
-tree = discord.app_commands.CommandTree(client)
+tree = app_commands.CommandTree(client)
 last_timestamp = None
 
 async def find_chat_log_file():
     print("🔍 Scanning FTP directory for chat log files...")
-    async with aioftp.Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
+    async with IPv4Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
         await ftp.change_directory(FTP_PATH)
         files = await ftp.list()
         for file in files:
@@ -60,7 +66,7 @@ async def scan_and_post():
     try:
         filename = await find_chat_log_file()
         if filename:
-            async with aioftp.Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
+            async with IPv4Client.context(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
                 stream = await ftp.download_stream(f"{FTP_PATH}{filename}")
                 content = await stream.read()
                 text = content.decode("utf-8")
