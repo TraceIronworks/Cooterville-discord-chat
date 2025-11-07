@@ -4,7 +4,7 @@ import os
 import asyncio
 import socket
 from datetime import datetime
-from aioftp import Client
+from aioftplib import Client
 from discord import app_commands
 
 
