@@ -5,7 +5,6 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from datetime import datetime
-from discord.ext import commands
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +17,8 @@ SCAN_INTERVAL = 180
 CHANNEL_ID = 1236179374579912724
 
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+client = discord.Client(intents=intents)
+tree = discord.app_commands.CommandTree(client)
 last_timestamp = None
 
 async def find_chat_log_file():
@@ -51,10 +51,11 @@ def extract_new_messages(text):
     return new_messages
 
 async def scan_and_post():
-    channel = bot.get_channel(CHANNEL_ID)
+    channel = client.get_channel(CHANNEL_ID)
     if not channel:
         print("❌ Discord channel not found.")
         return
+
     try:
         filename = await find_chat_log_file()
         if filename:
@@ -74,19 +75,20 @@ async def scan_and_post():
     except Exception as e:
         print(f"🔥 Error during scan: {e}")
 
-@bot.command(name="scan")
-async def manual_scan(ctx):
-    await ctx.send("🔄 Manual scan triggered...")
+@tree.command(name="scan", description="Manually trigger a scan for new chat messages")
+async def manual_scan(interaction: discord.Interaction):
+    await interaction.response.send_message("🔄 Manual scan triggered...")
     await scan_and_post()
 
-@bot.event
+@client.event
 async def on_ready():
-    print(f"🤖 Logged in as {bot.user}")
-    bot.loop.create_task(auto_scan())
+    await tree.sync()
+    print(f"🤖 Logged in as {client.user}")
+    client.loop.create_task(auto_scan())
 
 async def auto_scan():
-    while not bot.is_closed():
+    while not client.is_closed():
         await scan_and_post()
         await asyncio.sleep(SCAN_INTERVAL)
 
-bot.run(TOKEN)
+client.run(TOKEN)
