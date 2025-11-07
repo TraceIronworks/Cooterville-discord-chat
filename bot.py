@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 import aioftp
 import asyncio
-import socket
 import os
 import re
 from datetime import datetime
@@ -28,47 +27,35 @@ tree = app_commands.CommandTree(client)
 # Track last posted timestamp
 last_timestamp = None
 
-def is_ipv4(address):
-    """Check if a string is already an IPv4 address."""
-    try:
-        socket.inet_aton(address)
-        return True
-    except socket.error:
-        return False
-
-async def resolve_ipv4_address(host):
-    """Resolve hostname to IPv4 address, or return as-is if already IP."""
-    if is_ipv4(host):
-        print(f"✅ Using IPv4 address directly: {host}")
-        return host
-    
-    try:
-        infos = await asyncio.get_event_loop().getaddrinfo(
-            host, 21, family=socket.AF_INET, type=socket.SOCK_STREAM
-        )
-        resolved = infos[0][4][0]
-        print(f"✅ Resolved {host} to {resolved}")
-        return resolved
-    except Exception as e:
-        print(f"⚠️ Failed to resolve {host}: {e}")
-        return host
-
 async def find_chat_log_file():
     """Find the chat log file on the FTP server."""
     print("🔍 Scanning FTP directory for chat log files...")
     try:
-        resolved_host = await resolve_ipv4_address(FTP_HOST)
-        async with aioftp.Client.context(resolved_host, FTP_USER, FTP_PASS) as ftp:
-            await ftp.change_directory(FTP_PATH)
-            files = await ftp.list()
-            for file in files:
-                if "chat" in file.name.lower() and file.name.endswith(".txt"):
-                    print(f"📄 Found chat log file: {file.name}")
-                    return file.name
-            print("⚠️ No matching chat log file found.")
-            return None
+        # Connect directly with IP address - no resolution needed
+        ftp_client = aioftp.Client()
+        await ftp_client.connect(FTP_HOST)
+        await ftp_client.login(FTP_USER, FTP_PASS)
+        
+        await ftp_client.change_directory(FTP_PATH)
+        files = []
+        async for path, info in ftp_client.list():
+            files.append((path, info))
+        
+        await ftp_client.quit()
+        
+        for path, info in files:
+            filename = str(path)
+            if "chat" in filename.lower() and filename.endswith(".txt"):
+                print(f"📄 Found chat log file: {filename}")
+                return filename
+        
+        print("⚠️ No matching chat log file found.")
+        return None
+        
     except Exception as e:
         print(f"🔥 Error finding chat log file: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def extract_new_messages(text):
@@ -108,23 +95,30 @@ async def scan_and_post():
             print("🚫 No chat log file to scan.")
             return
         
-        resolved_host = await resolve_ipv4_address(FTP_HOST)
-        async with aioftp.Client.context(resolved_host, FTP_USER, FTP_PASS) as ftp:
-            stream = await ftp.download_stream(f"{FTP_PATH}{filename}")
-            content = await stream.read()
-            text = content.decode("utf-8")
-            
-            messages = extract_new_messages(text)
-            if messages:
-                print(f"📤 Posting {len(messages)} messages to Discord...")
-                for msg in messages:
-                    await channel.send(msg)
-                    await asyncio.sleep(0.5)  # Small delay to avoid rate limits
-            else:
-                print("📭 No new messages to post.")
+        # Download the file
+        ftp_client = aioftp.Client()
+        await ftp_client.connect(FTP_HOST)
+        await ftp_client.login(FTP_USER, FTP_PASS)
+        
+        stream = await ftp_client.download_stream(f"{FTP_PATH}{filename}")
+        content = await stream.read()
+        text = content.decode("utf-8")
+        
+        await ftp_client.quit()
+        
+        messages = extract_new_messages(text)
+        if messages:
+            print(f"📤 Posting {len(messages)} messages to Discord...")
+            for msg in messages:
+                await channel.send(msg)
+                await asyncio.sleep(0.5)
+        else:
+            print("📭 No new messages to post.")
                 
     except Exception as e:
         print(f"🔥 Error during scan: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def auto_scan():
     """Automatically scan FTP on an interval."""
@@ -148,17 +142,14 @@ async def on_ready():
     print(f"🤖 Logged in as {client.user}")
     print(f"📡 Connected to {len(client.guilds)} guild(s)")
     
-    # Sync slash commands
     try:
         synced = await tree.sync()
         print(f"✅ Synced {len(synced)} command(s)")
     except Exception as e:
         print(f"⚠️ Failed to sync commands: {e}")
     
-    # Start auto-scanning
     client.loop.create_task(auto_scan())
 
-# Run the bot
 if __name__ == "__main__":
     if not TOKEN:
         print("❌ DISCORD_TOKEN not found in environment variables!")
