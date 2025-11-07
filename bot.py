@@ -58,8 +58,9 @@ async def scan_and_post():
                     content = await stream.read()
                     text = content.decode("utf-8")
                     messages = extract_new_messages(text)
-                    for msg in messages[-5:]:  # Post up to 5 new messages
+                    for msg in messages:
                         await channel.send(msg)
+
             else:
                 print("No chat log file found.")
         except Exception as e:
