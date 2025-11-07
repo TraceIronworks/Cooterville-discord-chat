@@ -28,13 +28,27 @@ tree = app_commands.CommandTree(client)
 # Track last posted timestamp
 last_timestamp = None
 
+def is_ipv4(address):
+    """Check if a string is already an IPv4 address."""
+    try:
+        socket.inet_aton(address)
+        return True
+    except socket.error:
+        return False
+
 async def resolve_ipv4_address(host):
-    """Resolve hostname to IPv4 address."""
+    """Resolve hostname to IPv4 address, or return as-is if already IP."""
+    if is_ipv4(host):
+        print(f"✅ Using IPv4 address directly: {host}")
+        return host
+    
     try:
         infos = await asyncio.get_event_loop().getaddrinfo(
             host, 21, family=socket.AF_INET, type=socket.SOCK_STREAM
         )
-        return infos[0][4][0]
+        resolved = infos[0][4][0]
+        print(f"✅ Resolved {host} to {resolved}")
+        return resolved
     except Exception as e:
         print(f"⚠️ Failed to resolve {host}: {e}")
         return host
